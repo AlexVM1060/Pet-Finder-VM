@@ -60,33 +60,6 @@ local targetPets = {
 local espEnabled = false
 local ScreenGui -- será reconstruido cada respawn
 
--- Función para mostrar mensaje central temporal con fade out
-local function showMessage()
-    local msgGui = Instance.new("ScreenGui")
-    msgGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-    local text = Instance.new("TextLabel")
-    text.Size = UDim2.new(0.8, 0, 0.2, 0)
-    text.Position = UDim2.new(0.1, 0, 0.4, 0)
-    text.BackgroundTransparency = 1
-    text.Text = "⚠ Luther Pet Finder\nEstara en mantenimiento durante un buen rato, no creí que llegara a tanta gente y se saturó, esperen a que lo solucione, estaré avisando por YouTube y Por Telegram"
-    text.TextColor3 = Color3.fromRGB(255,255,255) -- blanco
-    text.TextWrapped = true
-    text.Font = Enum.Font.GothamBold
-    text.TextScaled = true
-    text.TextTransparency = 0
-    text.Parent = msgGui
-
-    -- Mantener 7 segundos visible y luego desvanecer
-    task.delay(13, function()
-        for i = 0, 1, 0.05 do
-            text.TextTransparency = i
-            task.wait(0.1)
-        end
-        msgGui:Destroy()
-    end)
-end
-
 -- Función para obtener mutación y generación de pets
 local function getMutationMap()
     local mutationMap = {}
@@ -124,6 +97,8 @@ local function getMutationMap()
 end
 
 -- Función para crear ESP con mutación y generación
+-- Función para crear ESP con mutación y generación
+-- Función para crear ESP con mutación y generación
 local function createESP(pet)
     if pet:FindFirstChild("ESP_Tag") then return end
     local head = pet:FindFirstChild("Head") or pet:FindFirstChildWhichIsA("BasePart")
@@ -139,6 +114,7 @@ local function createESP(pet)
         end
     end
 
+    -- convertir el texto de generación a número (soporta K y M)
     local function parseGen(genStr)
         if not genStr or genStr == "Stolen" or genStr == "Unknown" then return 0 end
         local num = tonumber(genStr:match("%d+"))
@@ -154,13 +130,14 @@ local function createESP(pet)
 
     local genValue = parseGen(generationText)
 
-    local genColor = Color3.fromRGB(255,0,0)
+    -- asignar color según rango
+    local genColor = Color3.fromRGB(255,0,0) -- por defecto rojo
     if genValue >= 1_000_000 then
-        genColor = Color3.fromRGB(0,255,0)
+        genColor = Color3.fromRGB(0,255,0) -- verde fuerte
     elseif genValue >= 500_000 then
-        genColor = Color3.fromRGB(0,200,0)
+        genColor = Color3.fromRGB(0,200,0) -- verde medio
     elseif genValue >= 50_000 then
-        genColor = Color3.fromRGB(255,165,0)
+        genColor = Color3.fromRGB(255,165,0) -- naranja/amarillo
     end
 
     local bill = Instance.new("BillboardGui")
@@ -170,30 +147,33 @@ local function createESP(pet)
     bill.AlwaysOnTop = true
     bill.Parent = pet
 
+    -- 🐾 Nombre
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0.33, 0)
     nameLabel.Position = UDim2.new(0,0,0,0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = "🐾 ".. pet.Name
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Amarillo
     nameLabel.TextStrokeTransparency = 0
     nameLabel.Font = Enum.Font.SourceSansBold
     nameLabel.TextScaled = true
     nameLabel.TextWrapped = true
     nameLabel.Parent = bill
 
+    -- 🧬 Mutación
     local mutationLabel = Instance.new("TextLabel")
     mutationLabel.Size = UDim2.new(1, 0, 0.33, 0)
     mutationLabel.Position = UDim2.new(0,0,0.33,0)
     mutationLabel.BackgroundTransparency = 1
     mutationLabel.Text = "🧬: " .. mutationText
-    mutationLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+    mutationLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan
     mutationLabel.TextStrokeTransparency = 0
     mutationLabel.Font = Enum.Font.SourceSansBold
     mutationLabel.TextScaled = true
     mutationLabel.TextWrapped = true
     mutationLabel.Parent = bill
 
+    -- 💰 Dinero con color dinámico
     local genLabel = Instance.new("TextLabel")
     genLabel.Size = UDim2.new(1, 0, 0.33, 0)
     genLabel.Position = UDim2.new(0,0,0.66,0)
@@ -206,6 +186,7 @@ local function createESP(pet)
     genLabel.TextWrapped = true
     genLabel.Parent = bill
 
+    -- Línea (beam) hacia el jugador
     local att0 = Instance.new("Attachment", head)
     local att1 = Instance.new("Attachment", LocalPlayer.Character:WaitForChild("HumanoidRootPart"))
     local beam = Instance.new("Beam")
@@ -216,6 +197,7 @@ local function createESP(pet)
     beam.Attachment1 = att1
     beam.Parent = head
 end
+
 
 -- Función para construir la UI
 local function buildUI()
@@ -251,19 +233,37 @@ local function buildUI()
     end)
 end
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/AlexVM1060/Pet-Finder-VM/refs/heads/main/Alternative.lua"))()
-
 -- Reconstruir UI cada vez que el jugador reaparezca
 LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
+    task.wait(1) -- espera que cargue PlayerGui
     buildUI()
 end)
 
+local function showCenterMessage()
+    local msg = Instance.new("TextLabel")
+    msg.Size = UDim2.new(0.8, 0, 0.15, 0) -- ancho 80% de la pantalla, alto 15%
+    msg.Position = UDim2.new(0.1, 0, 0.4, 0) -- centrado horizontal y vertical
+    msg.BackgroundTransparency = 1 -- sin fondo
+    msg.Text = "⚠ Lo siento si no pueden entrar a todos los servers porque están llenos, recuerden que es gratuito, pero ya estoy tratando de arreglarlo, trabajaré esta noche para solucionarlo, para que sea algo que puedan usar la mayoría. No puedo hacer mucho porque es algo que muchos están usando y solo los más rápidos entran, pero trataré de cambiar unas cosas para que haya más chance de entrar. Disculpen las molestias, muchas gracias por el apoyo, los quiero mucho ❤"
+    msg.TextColor3 = Color3.fromRGB(180,180,180) -- gris claro
+    msg.TextWrapped = true
+    msg.Font = Enum.Font.GothamSemibold
+    msg.TextScaled = true
+    msg.Parent = ScreenGui
+
+    -- ⏳ Eliminar mensaje después de 10 segundos
+    task.delay(10, function()
+        if msg then
+            msg:Destroy()
+        end
+    end)
+end
+
+-- Mostrar mensaje al ejecutar el script
+showCenterMessage()
+
 -- Crear la UI inicial
 buildUI()
-
--- Mostrar mensaje central
-showMessage()
 
 -- Escaneo de pets
 RunService.Heartbeat:Connect(function()
