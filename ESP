@@ -1,0 +1,276 @@
+-- 🐾 Pet ESP Finder con Toggle
+-- by AlexVM adaptado y corregido
+
+-- Servicios
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Lista de mascotas objetivo
+local targetPets = {
+    ["Tralalero Tralala"] = true,
+    ["La Vacca Saturno Saturnita"] = true,
+    ["Chimpanzini Spiderini"] = true,
+    ["Los Tralaleritos"] = true,
+    ["Graipuss Medussi"] = true,
+    ["La Grande Combinasion"] = true,
+    ["Garama and Madundung"] = true,
+    ["Orcalero Orcala"] = true,
+    ["Torrtuginni Dragonfrutini"] = true,
+    ["Pot Hotspot"] = true,
+    ["Las Tralaleritas"] = true,
+    ["Lucky Block"] = true,
+    ["Nuclearo Dinossauro"] = true,
+    ["Las Vaquitas Saturnitas"] = true,
+    ["Los Tungtungtungcitos"] = true,
+    ["Chicleteira Bicicleteira"] = true,
+    ["Dragon Cannelloni"] = true,
+    ["Los Hotspotsitos"] = true,
+    ["Agarrini la Palini"] = true,
+    ["Tob Tobi Tobi"] = true,
+    ["Los Orcalitos"] = true,
+    ["Karkerkar Kurkur"] = true,
+    ["Bulbito Bandito Traktorito"] = true,
+    ["Esok Sekolah"] = true,
+    ["Tracoducotulu Delapeladustuz"] = true,
+    ["Tralalita tralala"] = true,
+    ["Job Job Job Sahur"] = true,
+    ["Tipi Topi Taco"] = true,
+    ["Urubini Flamenguini"] = true,
+    ["Matteo"] = true,
+    ["Los Matteos"] = true,
+	["Blackhole Goat"] = true,
+	["Tartaruga Cisterna"] = true,
+	["Dul Dul Dul"] = true,
+	["Los Bombinitos"] = true,
+	["Bisonte Giuppitere"] = true,
+	["Alessio"] = true,
+	["Ballerino Lololo"] = true,
+	["Trenostruzzo Turbo 3000"] = true,
+	["Sammyni Spyderini"] = true,
+	["Brr es Teh Patipum"] = true,
+	["Piccione Macchina"] = true,
+	["Los Combinasionas"] = true,
+	["La Grande Combinasion"] = true
+}
+
+-- Variables globales
+local espEnabled = false
+local ScreenGui -- será reconstruido cada respawn
+
+-- Función para mostrar mensaje central temporal con fade out
+local function showMessage()
+    local msgGui = Instance.new("ScreenGui")
+    msgGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(0.8, 0, 0.2, 0)
+    text.Position = UDim2.new(0.1, 0, 0.4, 0)
+    text.BackgroundTransparency = 1
+    text.Text = "⚠ Luther Pet Finder\nEstara en mantenimiento durante un buen rato, no creí que llegara a tanta gente y se saturó, esperen a que lo solucione, estaré avisando por YouTube y Por Telegram"
+    text.TextColor3 = Color3.fromRGB(255,255,255) -- blanco
+    text.TextWrapped = true
+    text.Font = Enum.Font.GothamBold
+    text.TextScaled = true
+    text.TextTransparency = 0
+    text.Parent = msgGui
+
+    -- Mantener 7 segundos visible y luego desvanecer
+    task.delay(13, function()
+        for i = 0, 1, 0.05 do
+            text.TextTransparency = i
+            task.wait(0.1)
+        end
+        msgGui:Destroy()
+    end)
+end
+
+-- Función para obtener mutación y generación de pets
+local function getMutationMap()
+    local mutationMap = {}
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return mutationMap end
+
+    for _, plot in ipairs(plots:GetChildren()) do
+        local podiums = plot:FindFirstChild("AnimalPodiums")
+        if podiums then
+            for _, podium in ipairs(podiums:GetChildren()) do
+                local base = podium:FindFirstChild("Base")
+                local spawn = base and base:FindFirstChild("Spawn")
+                local attachment = spawn and spawn:FindFirstChild("Attachment")
+                local overhead = attachment and attachment:FindFirstChild("AnimalOverhead")
+                local displayName = overhead and overhead:FindFirstChild("DisplayName")
+                local mutation = overhead and overhead:FindFirstChild("Mutation")
+                local generation = overhead and overhead:FindFirstChild("Generation")
+
+                if spawn and displayName and displayName:IsA("TextLabel") then
+                    local name = displayName.Text
+                    local mutationText = (mutation and mutation:IsA("TextLabel") and mutation.Visible and mutation.Text ~= "" and mutation.Text ~= "Normal") and mutation.Text or "Normal"
+                    local generationText = (generation and generation:IsA("TextLabel")) and generation.Text or "Unknown"
+
+                    table.insert(mutationMap, {
+                        name = name,
+                        position = spawn.Position,
+                        mutation = mutationText,
+                        generation = generationText
+                    })
+                end
+            end
+        end
+    end
+    return mutationMap
+end
+
+-- Función para crear ESP con mutación y generación
+local function createESP(pet)
+    if pet:FindFirstChild("ESP_Tag") then return end
+    local head = pet:FindFirstChild("Head") or pet:FindFirstChildWhichIsA("BasePart")
+    if not head then return end
+
+    local mutationText, generationText = "Stolen", "Stolen"
+    local mutationMap = getMutationMap()
+    for _, data in ipairs(mutationMap) do
+        if data.name == pet.Name then
+            mutationText = data.mutation or "Normal"
+            generationText = data.generation or "Stolen"
+            break
+        end
+    end
+
+    local function parseGen(genStr)
+        if not genStr or genStr == "Stolen" or genStr == "Unknown" then return 0 end
+        local num = tonumber(genStr:match("%d+"))
+        if not num then return 0 end
+        if genStr:find("M") then
+            return num * 1_000_000
+        elseif genStr:find("K") then
+            return num * 1_000
+        else
+            return num
+        end
+    end
+
+    local genValue = parseGen(generationText)
+
+    local genColor = Color3.fromRGB(255,0,0)
+    if genValue >= 1_000_000 then
+        genColor = Color3.fromRGB(0,255,0)
+    elseif genValue >= 500_000 then
+        genColor = Color3.fromRGB(0,200,0)
+    elseif genValue >= 50_000 then
+        genColor = Color3.fromRGB(255,165,0)
+    end
+
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "ESP_Tag"
+    bill.Size = UDim2.new(0, 200, 0, 60)
+    bill.StudsOffset = Vector3.new(0, 3, 0)
+    bill.AlwaysOnTop = true
+    bill.Parent = pet
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.33, 0)
+    nameLabel.Position = UDim2.new(0,0,0,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = "🐾 ".. pet.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextScaled = true
+    nameLabel.TextWrapped = true
+    nameLabel.Parent = bill
+
+    local mutationLabel = Instance.new("TextLabel")
+    mutationLabel.Size = UDim2.new(1, 0, 0.33, 0)
+    mutationLabel.Position = UDim2.new(0,0,0.33,0)
+    mutationLabel.BackgroundTransparency = 1
+    mutationLabel.Text = "🧬: " .. mutationText
+    mutationLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+    mutationLabel.TextStrokeTransparency = 0
+    mutationLabel.Font = Enum.Font.SourceSansBold
+    mutationLabel.TextScaled = true
+    mutationLabel.TextWrapped = true
+    mutationLabel.Parent = bill
+
+    local genLabel = Instance.new("TextLabel")
+    genLabel.Size = UDim2.new(1, 0, 0.33, 0)
+    genLabel.Position = UDim2.new(0,0,0.66,0)
+    genLabel.BackgroundTransparency = 1
+    genLabel.Text = "💰: " .. generationText
+    genLabel.TextColor3 = genColor
+    genLabel.TextStrokeTransparency = 0
+    genLabel.Font = Enum.Font.SourceSansBold
+    genLabel.TextScaled = true
+    genLabel.TextWrapped = true
+    genLabel.Parent = bill
+
+    local att0 = Instance.new("Attachment", head)
+    local att1 = Instance.new("Attachment", LocalPlayer.Character:WaitForChild("HumanoidRootPart"))
+    local beam = Instance.new("Beam")
+    beam.Color = ColorSequence.new(Color3.fromRGB(255, 255, 0))
+    beam.Width0 = 0.2
+    beam.Width1 = 0.2
+    beam.Attachment0 = att0
+    beam.Attachment1 = att1
+    beam.Parent = head
+end
+
+-- Función para construir la UI
+local function buildUI()
+    if ScreenGui then ScreenGui:Destroy() end
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local espToggle = Instance.new("TextButton", ScreenGui)
+    espToggle.Name = "ESP_Toggle"
+    espToggle.Size = UDim2.new(0,120,0,30)
+    espToggle.Position = UDim2.new(1,-130,0,50)
+    espToggle.BackgroundColor3 = espEnabled and Color3.fromRGB(0,150,0) or Color3.fromRGB(50,50,50)
+    espToggle.Text = espEnabled and "ESP: ON" or "ESP: OFF"
+    espToggle.TextColor3 = Color3.fromRGB(255,255,255)
+    espToggle.Font = Enum.Font.GothamBold
+    espToggle.TextSize = 14
+    Instance.new("UICorner", espToggle).CornerRadius = UDim.new(0,8)
+
+    espToggle.MouseButton1Click:Connect(function()
+        espEnabled = not espEnabled
+        if espEnabled then
+            espToggle.Text = "ESP: ON"
+            espToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        else
+            espToggle.Text = "ESP: OFF"
+            espToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj:FindFirstChild("ESP_Tag") then
+                    obj.ESP_Tag:Destroy()
+                end
+            end
+        end
+    end)
+end
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/AlexVM1060/Pet-Finder-VM/refs/heads/main/Alternative.lua"))()
+
+-- Reconstruir UI cada vez que el jugador reaparezca
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    buildUI()
+end)
+
+-- Crear la UI inicial
+buildUI()
+
+-- Mostrar mensaje central
+showMessage()
+
+-- Escaneo de pets
+RunService.Heartbeat:Connect(function()
+    if not espEnabled then return end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and targetPets[obj.Name] then
+            createESP(obj)
+        end
+    end
+end)
